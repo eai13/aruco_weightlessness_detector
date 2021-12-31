@@ -1,10 +1,3 @@
-//#define L_UP 0
-//#define R_UP 1
-//#define L_DW 2
-//#define R_DW 3
-
-//#define EXCLUDED cv::Point2i(-1, -1)
-
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "opencv2/aruco.hpp"
@@ -56,23 +49,16 @@ void MainWindow::CameraCallback(void){
 
         for (int iter = 0; iter < MarkerIDs.size(); iter++){
             if (AvailableMarkers[MarkerIDs[iter]] == 1){
-                std::cout << "OKAY 1 " << MarkerIDs[iter] << std::endl;
                 DetectedMarkers[MarkerIDs[iter]].x = (MarkerCorners[iter][0].x + MarkerCorners[iter][1].x + MarkerCorners[iter][2].x + MarkerCorners[iter][3].x) / 4;
                 DetectedMarkers[MarkerIDs[iter]].y = (MarkerCorners[iter][0].y + MarkerCorners[iter][1].y + MarkerCorners[iter][2].y + MarkerCorners[iter][3].y) / 4;
-                std::cout << "OK 2" << std::endl;
 
                 for (auto iter2 = StrList.begin(); iter2 != StrList.end(); iter2++){
                     if (strncmp(iter2->toStdString().c_str(), std::to_string(MarkerIDs[iter]).c_str(), std::to_string(MarkerIDs[iter]).length()) == 0){
                         *iter2 = QString::fromStdString(std::to_string(MarkerIDs[iter])) +
                                 " [ " + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].x)) + " ; "
                                 + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].y)) + " ]";
-//                        StrList[StrList.indexOf(QString::fromStdString(std::to_string(MarkerIDs[iter])), 0)] =
-//                                QString::fromStdString(std::to_string(MarkerIDs[iter])) +
-//                                " [ " + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].x)) + " ; "
-//                                + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].y)) + " ]";
                     }
                 }
-                std::cout << "ENDEDED 3" << std::endl;
             }
         }
         MarkerList->setStringList(StrList);
@@ -144,26 +130,19 @@ void MainWindow::on_pushButton_choosearuco_clicked(void){
     AvailableMarkers[ui->lineEdit_markerID->text().toInt()] = 1;
     MarkerList->setStringList(StrList);
 
-//    if (!(StrList.contains(ui->lineEdit_markerID->text()))){
-//        StrList.append(ui->lineEdit_markerID->text());
-//        AvailableMarkers[ui->lineEdit_markerID->text().toInt()] = 1;
-//        MarkerList->setStringList(StrList);
-//    }
+    ui->lineEdit_markerID->setText("");
 }
 
 void MainWindow::on_pushButton_removearuco_clicked(){
     QStringList StrList = MarkerList->stringList();
     for (auto iter = StrList.begin(); iter != StrList.end(); iter++){
-        if (strncmp(iter->toStdString().c_str(), ui->lineEdit_markerID->text().toStdString().c_str(), iter->length()) == 0){
+        if (strncmp(iter->toStdString().c_str(), ui->lineEdit_markerID->text().toStdString().c_str(), ui->lineEdit_markerID->text().length()) == 0){
             StrList.erase(iter);
             AvailableMarkers[iter->toInt()] = 0;
             MarkerList->setStringList(StrList);
             break;
         }
     }
-//    if (StrList.contains(ui->lineEdit_markerID->text())){
-//        StrList.removeOne(ui->lineEdit_markerID->text());
-//        AvailableMarkers[ui->lineEdit_markerID->text().toInt()] = 0;
-//        MarkerList->setStringList(StrList);
-//    }
+
+    ui->lineEdit_markerID->setText("");
 }
