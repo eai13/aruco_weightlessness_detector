@@ -25,6 +25,7 @@ private slots:
     void on_pushButton_camerachoose_clicked();
     void on_pushButton_choosearuco_clicked();
     void on_pushButton_removearuco_clicked();
+    void on_pushButton_experimentstart_clicked();
 };
 
 #endif // MAINWINDOW_H

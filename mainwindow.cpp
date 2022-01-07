@@ -19,11 +19,19 @@
 #include <QtTest/QTest>
 
 #include <iostream>
+#include <fstream>
 
 #include <QStringListModel>
 
+static char SEP_SYM = ';';
+
+int StartStopFlag = 0;
+
+std::ofstream LogFile;
+
 QStringListModel * MarkerList;
 
+cv::VideoWriter VideoFile;
 cv::VideoCapture camera;
 cv::Mat VideoFrame;
 
@@ -62,13 +70,26 @@ void MainWindow::CameraCallback(void){
             }
         }
         MarkerList->setStringList(StrList);
-        std::cout << std::endl;
 
         cv::aruco::drawDetectedMarkers(VideoFrame, MarkerCorners, MarkerIDs);
         cv::cvtColor(VideoFrame, VideoFrame, cv::COLOR_BGR2RGB);
         QImage image(VideoFrame.data, VideoFrame.cols, VideoFrame.rows, VideoFrame.step, QImage::Format_RGB888);
         image.setDevicePixelRatio(2);
         ui->label_camimage->setPixmap(QPixmap::fromImage(image));
+
+        if (StartStopFlag == 1){
+            if (LogFile.is_open()){
+                for (auto iter = StrList.begin(); iter != StrList.end(); iter++)
+                    LogFile << iter->toStdString().c_str() << SEP_SYM;
+                std::cout << "NO TROUBLE LOGFILE" << std::endl;
+            }
+            if (VideoFile.isOpened()){
+                std::cout << "IN" << std::endl;
+
+                VideoFile.write(VideoFrame);
+                std::cout << "NO TROUBLE VIDEOFILE" << std::endl;
+            }
+        }
     }
 }
 
@@ -145,4 +166,17 @@ void MainWindow::on_pushButton_removearuco_clicked(){
     }
 
     ui->lineEdit_markerID->setText("");
+}
+
+void MainWindow::on_pushButton_experimentstart_clicked(){
+    if (StartStopFlag == 0){
+        if (!(VideoFile.isOpened())) VideoFile.open(ui->lineEdit_experimentname->text().toStdString() + ".avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 10, cv::Size(1920, 1080));
+        if (!(LogFile.is_open())) LogFile.open(ui->lineEdit_experimentname->text().toStdString() + ".csv");
+        StartStopFlag = 1;
+    }
+    else{
+        StartStopFlag = 0;
+        if (VideoFile.isOpened()) VideoFile.release();
+        if (LogFile.is_open()) LogFile.close();
+    }
 }
