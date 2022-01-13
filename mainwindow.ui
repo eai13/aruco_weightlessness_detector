@@ -95,7 +95,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Log File</string>
+     <string/>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_choosearuco">
@@ -180,8 +180,31 @@
      <height>20</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Menu</string>
+    </property>
+    <addaction name="actionGenerate_Markers"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <addaction name="menuSettings"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionGenerate_Markers">
+   <property name="text">
+    <string>Generate Markers</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

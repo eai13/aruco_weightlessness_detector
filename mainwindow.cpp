@@ -22,8 +22,9 @@
 #include <fstream>
 
 #include <QStringListModel>
+#include <QDir>
 
-static char SEP_SYM = ';';
+#include "config.h"
 
 int StartStopFlag = 0;
 
@@ -47,8 +48,12 @@ std::vector<std::vector<cv::Point2f>> MarkerCorners, MarkersRejectedCandidates;
 cv::Point2i DetectedMarkers[50];
 int AvailableMarkers[50] = { 0 };
 
+int bench_count = 0;
+
 void MainWindow::CameraCallback(void){
-    if (camera.isOpened()){
+    QTimer::singleShot(CAMERA_CALLBACK_PERIOD, this, SLOT(CameraCallback()));
+//    std::cout << "Started" << std::endl;
+    if (0){//camera.isOpened()){
         camera >> VideoFrame;
         MarkerIDs.clear();
         cv::aruco::detectMarkers(VideoFrame, MarkerDictionary, MarkerCorners, MarkerIDs, MarkerParameters, MarkersRejectedCandidates);
@@ -72,25 +77,23 @@ void MainWindow::CameraCallback(void){
         MarkerList->setStringList(StrList);
 
         cv::aruco::drawDetectedMarkers(VideoFrame, MarkerCorners, MarkerIDs);
-        cv::cvtColor(VideoFrame, VideoFrame, cv::COLOR_BGR2RGB);
-        QImage image(VideoFrame.data, VideoFrame.cols, VideoFrame.rows, VideoFrame.step, QImage::Format_RGB888);
-        image.setDevicePixelRatio(2);
-        ui->label_camimage->setPixmap(QPixmap::fromImage(image));
-
         if (StartStopFlag == 1){
             if (LogFile.is_open()){
                 for (auto iter = StrList.begin(); iter != StrList.end(); iter++)
-                    LogFile << iter->toStdString().c_str() << SEP_SYM;
-                std::cout << "NO TROUBLE LOGFILE" << std::endl;
+                    LogFile << iter->toStdString().c_str() << CSV_SEPARATOR;
+                LogFile << std::endl;
             }
-            if (VideoFile.isOpened()){
-                std::cout << "IN" << std::endl;
-
+            if (VideoFile.isOpened())
                 VideoFile.write(VideoFrame);
-                std::cout << "NO TROUBLE VIDEOFILE" << std::endl;
-            }
         }
+
+        cv::cvtColor(VideoFrame, VideoFrame, cv::COLOR_BGR2RGB);
+        QImage image(VideoFrame.data, VideoFrame.cols, VideoFrame.rows, VideoFrame.step, QImage::Format_RGB888);
+        image.setDevicePixelRatio(CAMERA_PIXEL_RATIO);
+        ui->label_camimage->setPixmap(QPixmap::fromImage(image));
     }
+    bench_count++;
+//    std::cout << "Ended" << std::endl;
 }
 
 void MainWindow::UIUpdateCallback(void){
@@ -98,6 +101,8 @@ void MainWindow::UIUpdateCallback(void){
     ui->comboBox_camerachoose->clear();
     for (auto iter = CamAvailable.begin(); iter != CamAvailable.end(); iter++)
         ui->comboBox_camerachoose->addItem(iter->description());
+    std::cout << bench_count << std::endl;
+    bench_count = 0;
 }
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow){
@@ -109,15 +114,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     MarkerParameters = cv::aruco::DetectorParameters::create();
     MarkerDictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 
+#ifdef ARUCO_GENERATE_MARKERS
     cv::Mat img;
     for (int i = 0; i < 50; i++){
         cv::aruco::drawMarker(MarkerDictionary, i, 200, img);
         cv::imwrite(std::to_string(i) + ".bmp", img);
     }
+#endif
 
     CameraTimer = new QTimer();
-    connect(CameraTimer, SIGNAL(timeout()), this, SLOT(CameraCallback()));
-    CameraTimer->start(20);
+
+    QTimer::singleShot(CAMERA_CALLBACK_PERIOD, this, SLOT(CameraCallback()));
+//    connect(CameraTimer, SIGNAL(timeout()), this, SLOT(CameraCallback()));
+//    CameraTimer->start(CAMERA_CALLBACK_PERIOD);
 
     UIUpdateTimer = new QTimer();
     connect(UIUpdateTimer, SIGNAL(timeout()), this, SLOT(UIUpdateCallback()));
@@ -125,19 +134,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 }
 
 MainWindow::~MainWindow(){
-    if (camera.isOpened()){
+    if (camera.isOpened())
         camera.release();
-    }
     delete ui;
 }
 
 void MainWindow::on_pushButton_camerachoose_clicked(){
     if (camera.isOpened()) camera.release();
     camera.open(ui->comboBox_camerachoose->currentIndex());
-    camera.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
-    camera.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
-    camera.set(cv::CAP_PROP_AUTOFOCUS, 0);
-    camera.set(cv::CAP_PROP_AUTO_EXPOSURE, 1);
+    camera.set(cv::CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH);
+    camera.set(cv::CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT);
+    camera.set(cv::CAP_PROP_AUTOFOCUS, CAMERA_AUTOFOCUS);
+    camera.set(cv::CAP_PROP_AUTO_EXPOSURE, CAMERA_AUTOEXPOSURE);
 }
 
 void MainWindow::on_pushButton_choosearuco_clicked(void){
@@ -170,13 +178,21 @@ void MainWindow::on_pushButton_removearuco_clicked(){
 
 void MainWindow::on_pushButton_experimentstart_clicked(){
     if (StartStopFlag == 0){
-        if (!(VideoFile.isOpened())) VideoFile.open(ui->lineEdit_experimentname->text().toStdString() + ".avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 10, cv::Size(1920, 1080));
-        if (!(LogFile.is_open())) LogFile.open(ui->lineEdit_experimentname->text().toStdString() + ".csv");
+        QDir directory = QDir::current();
+        directory.mkdir(ui->lineEdit_experimentname->text());
+
+        if (!(VideoFile.isOpened()))
+            VideoFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + VIDEO_FORMAT,
+                           cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 1000 / CAMERA_CALLBACK_PERIOD,
+                           cv::Size(camera.get(cv::CAP_PROP_FRAME_WIDTH), camera.get(cv::CAP_PROP_FRAME_HEIGHT)));
+        if (!(LogFile.is_open())) LogFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + CSV_TAIL);
+        ui->pushButton_experimentstart->setText("Stop");
         StartStopFlag = 1;
     }
     else{
         StartStopFlag = 0;
         if (VideoFile.isOpened()) VideoFile.release();
         if (LogFile.is_open()) LogFile.close();
+        ui->pushButton_experimentstart->setText("Start");
     }
 }
