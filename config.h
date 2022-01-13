@@ -1,7 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define CAMERA_CALLBACK_PERIOD  40
+#define CAMERA_CALLBACK_PERIOD      40
+#define CAMERA_FRAMERATE_THRESHOLD  3
 #define CAMERA_WIDTH            1920
 #define CAMERA_HEIGHT           1080
 #define CAMERA_AUTOFOCUS        0

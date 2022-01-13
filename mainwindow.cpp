@@ -25,6 +25,9 @@
 #include <QDir>
 
 #include "config.h"
+#include "framerate.h"
+
+FrameRate CameraRate(1000 / CAMERA_CALLBACK_PERIOD, CAMERA_FRAMERATE_THRESHOLD);
 
 int StartStopFlag = 0;
 
@@ -52,8 +55,7 @@ int bench_count = 0;
 
 void MainWindow::CameraCallback(void){
     QTimer::singleShot(CAMERA_CALLBACK_PERIOD, this, SLOT(CameraCallback()));
-//    std::cout << "Started" << std::endl;
-    if (0){//camera.isOpened()){
+    if (camera.isOpened()){
         camera >> VideoFrame;
         MarkerIDs.clear();
         cv::aruco::detectMarkers(VideoFrame, MarkerDictionary, MarkerCorners, MarkerIDs, MarkerParameters, MarkersRejectedCandidates);
@@ -93,7 +95,6 @@ void MainWindow::CameraCallback(void){
         ui->label_camimage->setPixmap(QPixmap::fromImage(image));
     }
     bench_count++;
-//    std::cout << "Ended" << std::endl;
 }
 
 void MainWindow::UIUpdateCallback(void){
@@ -101,7 +102,8 @@ void MainWindow::UIUpdateCallback(void){
     ui->comboBox_camerachoose->clear();
     for (auto iter = CamAvailable.begin(); iter != CamAvailable.end(); iter++)
         ui->comboBox_camerachoose->addItem(iter->description());
-    std::cout << bench_count << std::endl;
+    CameraRate.UpdateFrameRate(bench_count);
+    std::cout << CameraRate.GetCurrentFrameRate() << std::endl;
     bench_count = 0;
 }
 
@@ -130,7 +132,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     UIUpdateTimer = new QTimer();
     connect(UIUpdateTimer, SIGNAL(timeout()), this, SLOT(UIUpdateCallback()));
-    UIUpdateTimer->start(500);
+    UIUpdateTimer->start(1000);
 }
 
 MainWindow::~MainWindow(){

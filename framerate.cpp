@@ -6,11 +6,11 @@ FrameRate::FrameRate(unsigned short rate, unsigned short thres){
 }
 
 void FrameRate::SetFrameRate(unsigned short rate){
-    this->CurrentRate = rate;
+    this->PresetRate = rate;
 }
 
 void FrameRate::UpdateFrameRate(unsigned short rate){
-    this->PresetRate = rate;
+    this->CurrentRate = rate;
 }
 
 unsigned short FrameRate::GetCurrentFrameRate(void){
