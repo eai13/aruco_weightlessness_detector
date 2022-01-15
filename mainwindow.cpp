@@ -25,10 +25,13 @@
 
 #include <QStringListModel>
 #include <QDir>
+#include <QTime>
 
 #include "config.h"
 #include "framerate.h"
 #include "memfile.h"
+
+QTime * Time;
 
 AppConfigs * ConfigFile;
 
@@ -56,6 +59,7 @@ cv::Point2i DetectedMarkers[50];
 int AvailableMarkers[50] = { 0 };
 
 int bench_count = 0;
+int FrameCounter = 0;
 
 void MainWindow::CameraCallback(void){
     QTimer::singleShot(CAMERA_CALLBACK_PERIOD, this, SLOT(CameraCallback()));
@@ -68,11 +72,12 @@ void MainWindow::CameraCallback(void){
 
         for (int iter = 0; iter < MarkerIDs.size(); iter++){
             if (AvailableMarkers[MarkerIDs[iter]] == 1){
+                std::cout << "MarkerAvailable" << std::endl;
                 DetectedMarkers[MarkerIDs[iter]].x = (MarkerCorners[iter][0].x + MarkerCorners[iter][1].x + MarkerCorners[iter][2].x + MarkerCorners[iter][3].x) / 4;
                 DetectedMarkers[MarkerIDs[iter]].y = (MarkerCorners[iter][0].y + MarkerCorners[iter][1].y + MarkerCorners[iter][2].y + MarkerCorners[iter][3].y) / 4;
 
                 for (auto iter2 = StrList.begin(); iter2 != StrList.end(); iter2++){
-                    if (strncmp(iter2->toStdString().c_str(), std::to_string(MarkerIDs[iter]).c_str(), std::to_string(MarkerIDs[iter]).length()) == 0){
+                    if (strncmp(iter2->toStdString().c_str(), (MARKER_ID_HEADER + std::to_string(MarkerIDs[iter])).c_str(), (MARKER_ID_HEADER + std::to_string(MarkerIDs[iter])).length()) == 0){
                         *iter2 = MARKER_ID_HEADER + QString::fromStdString(std::to_string(MarkerIDs[iter])) +
                                 " ; " + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].x)) + " ; "
                                 + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].y));
@@ -85,13 +90,30 @@ void MainWindow::CameraCallback(void){
 
         cv::aruco::drawDetectedMarkers(VideoFrame, MarkerCorners, MarkerIDs);
         if (StartStopFlag == 1){
+            FrameCounter++;
             if (LogFile.is_open()){
+                LogFile << "Time:" << CSV_SEPARATOR << Time->elapsed() << CSV_SEPARATOR;
+                LogFile << "Frame:" << CSV_SEPARATOR << FrameCounter << CSV_SEPARATOR;
                 for (auto iter = StrList.begin(); iter != StrList.end(); iter++)
                     LogFile << iter->toStdString().c_str() << CSV_SEPARATOR;
                 LogFile << std::endl;
             }
-            if (VideoFile.isOpened())
+            if (VideoFile.isOpened()){
+//                cv::rectangle(VideoFrame,
+//                              cv::Point(10, 10), cv::Point(300, 90),
+//                              cv::Scalar(0, 0, 0), -1);
+                cv::putText(VideoFrame,
+                            "Time: " + std::to_string((Time->elapsed() / 1000.0)),
+                            cv::Point(20, 40),
+                            cv::FONT_HERSHEY_SIMPLEX, 0.75,
+                            cv::Scalar(255, 255, 255), 2);
+                cv::putText(VideoFrame,
+                            "Frame: " + std::to_string(FrameCounter),
+                            cv::Point(20, 70),
+                            cv::FONT_HERSHEY_SIMPLEX, 0.75,
+                            cv::Scalar(255, 255, 255), 2);
                 VideoFile.write(VideoFrame);
+            }
         }
 
         cv::cvtColor(VideoFrame, VideoFrame, cv::COLOR_BGR2RGB);
@@ -108,12 +130,16 @@ void MainWindow::UIUpdateCallback(void){
     for (auto iter = CamAvailable.begin(); iter != CamAvailable.end(); iter++)
         ui->comboBox_camerachoose->addItem(iter->description());
     CameraRate->UpdateFrameRate(bench_count);
-    std::cout << CameraRate->GetCurrentFrameRate() << std::endl;
+    ui->label_fps->setText(" FPS: " + QString::fromStdString(std::to_string(CameraRate->GetCurrentFrameRate())));
+    if (CameraRate->IsRateOk()) ui->label_fps->setStyleSheet("QLabel { background-color: #55ff00; }");
+    else ui->label_fps->setStyleSheet("QLabel { background-color: yellow; }");
     bench_count = 0;
 }
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow){
     ui->setupUi(this);
+
+    Time = new QTime;
 
     ConfigFile = new AppConfigs("config.ar");
 
@@ -169,6 +195,7 @@ void MainWindow::on_pushButton_choosearuco_clicked(void){
     }
     StrList.append(MARKER_ID_HEADER + ui->lineEdit_markerID->text());
     AvailableMarkers[ui->lineEdit_markerID->text().toInt()] = 1;
+    std::cout << "MarkerSet" << std::endl;
     MarkerList->setStringList(StrList);
 
     ui->lineEdit_markerID->clear();
@@ -193,16 +220,20 @@ void MainWindow::on_pushButton_experimentstart_clicked(){
     if (StartStopFlag == 0){
         QDir directory = QDir::current();
         directory.mkdir(ui->lineEdit_experimentname->text());
-
+        std::cout << "here 1" << std::endl;
         if (!(VideoFile.isOpened()))
             VideoFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + VIDEO_FORMAT,
                            cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), CameraRate->GetPresetFrameRate(),
-                           cv::Size(camera->GetWidth(), camera->GetHeight()));
+                           cv::Size(camera->get(cv::CAP_PROP_FRAME_WIDTH), camera->get(cv::CAP_PROP_FRAME_HEIGHT))); //camera->GetWidth(), camera->GetHeight()));
+        std::cout << "here 2" << std::endl;
         if (!(LogFile.is_open())) LogFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + CSV_TAIL);
         ui->pushButton_experimentstart->setText("Stop");
+        std::cout << "here 3" << std::endl;
         StartStopFlag = 1;
+        Time->restart();
     }
     else{
+        FrameCounter = 0;
         StartStopFlag = 0;
         if (VideoFile.isOpened()) VideoFile.release();
         if (LogFile.is_open()) LogFile.close();

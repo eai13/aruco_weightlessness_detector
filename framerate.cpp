@@ -21,9 +21,9 @@ unsigned short FrameRate::GetPresetFrameRate(void){
     return this->PresetRate;
 }
 
-unsigned short FrameRate::IsRateOk(unsigned short current_rate){
-    if (((current_rate < this->PresetRate) && (this->PresetRate - current_rate > this->RateThreshold)) ||
-        ((current_rate > this->PresetRate) && (current_rate - this->PresetRate > this->RateThreshold))){
+unsigned short FrameRate::IsRateOk(void){
+    if (((this->CurrentRate < this->PresetRate) && (this->PresetRate - this->CurrentRate > this->RateThreshold)) ||
+        ((this->CurrentRate > this->PresetRate) && (this->CurrentRate - this->PresetRate > this->RateThreshold))){
         return 0;
     }
     else return 1;

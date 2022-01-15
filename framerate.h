@@ -12,7 +12,7 @@ public:
     void UpdateFrameRate(unsigned short rate);
     unsigned short GetCurrentFrameRate(void);
     unsigned short GetPresetFrameRate(void);
-    unsigned short IsRateOk(unsigned short current_rate);
+    unsigned short IsRateOk(void);
 private:
     unsigned short CurrentRate;
     unsigned short PresetRate;

@@ -81,6 +81,9 @@
       <height>21</height>
      </rect>
     </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
     <property name="text">
      <string>Apply</string>
     </property>
@@ -168,6 +171,25 @@
     </property>
     <property name="text">
      <string>Marker ID</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_fps">
+    <property name="geometry">
+     <rect>
+      <x>140</x>
+      <y>8</y>
+      <width>50</width>
+      <height>15</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>FPS:</string>
     </property>
    </widget>
   </widget>
