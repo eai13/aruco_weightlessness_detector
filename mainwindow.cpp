@@ -1,3 +1,5 @@
+#define ONE_SECOND  1000
+
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "opencv2/aruco.hpp"
@@ -26,8 +28,11 @@
 
 #include "config.h"
 #include "framerate.h"
+#include "memfile.h"
 
-FrameRate CameraRate(1000 / CAMERA_CALLBACK_PERIOD, CAMERA_FRAMERATE_THRESHOLD);
+AppConfigs * ConfigFile;
+
+FrameRate * CameraRate;
 
 int StartStopFlag = 0;
 
@@ -36,10 +41,9 @@ std::ofstream LogFile;
 QStringListModel * MarkerList;
 
 cv::VideoWriter VideoFile;
-cv::VideoCapture camera;
+Camera * camera;
 cv::Mat VideoFrame;
 
-QTimer * CameraTimer = NULL;
 QTimer * UIUpdateTimer = NULL;
 
 cv::Ptr<cv::aruco::DetectorParameters> MarkerParameters;
@@ -55,8 +59,8 @@ int bench_count = 0;
 
 void MainWindow::CameraCallback(void){
     QTimer::singleShot(CAMERA_CALLBACK_PERIOD, this, SLOT(CameraCallback()));
-    if (camera.isOpened()){
-        camera >> VideoFrame;
+    if (camera->isOpened()){
+        *camera >> VideoFrame;
         MarkerIDs.clear();
         cv::aruco::detectMarkers(VideoFrame, MarkerDictionary, MarkerCorners, MarkerIDs, MarkerParameters, MarkersRejectedCandidates);
 
@@ -69,14 +73,15 @@ void MainWindow::CameraCallback(void){
 
                 for (auto iter2 = StrList.begin(); iter2 != StrList.end(); iter2++){
                     if (strncmp(iter2->toStdString().c_str(), std::to_string(MarkerIDs[iter]).c_str(), std::to_string(MarkerIDs[iter]).length()) == 0){
-                        *iter2 = QString::fromStdString(std::to_string(MarkerIDs[iter])) +
-                                " [ " + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].x)) + " ; "
-                                + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].y)) + " ]";
+                        *iter2 = MARKER_ID_HEADER + QString::fromStdString(std::to_string(MarkerIDs[iter])) +
+                                " ; " + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].x)) + " ; "
+                                + QString::fromStdString(std::to_string(DetectedMarkers[MarkerIDs[iter]].y));
                     }
                 }
             }
         }
         MarkerList->setStringList(StrList);
+        ConfigFile->SetArucoIDs(StrList);
 
         cv::aruco::drawDetectedMarkers(VideoFrame, MarkerCorners, MarkerIDs);
         if (StartStopFlag == 1){
@@ -102,72 +107,78 @@ void MainWindow::UIUpdateCallback(void){
     ui->comboBox_camerachoose->clear();
     for (auto iter = CamAvailable.begin(); iter != CamAvailable.end(); iter++)
         ui->comboBox_camerachoose->addItem(iter->description());
-    CameraRate.UpdateFrameRate(bench_count);
-    std::cout << CameraRate.GetCurrentFrameRate() << std::endl;
+    CameraRate->UpdateFrameRate(bench_count);
+    std::cout << CameraRate->GetCurrentFrameRate() << std::endl;
     bench_count = 0;
 }
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow){
     ui->setupUi(this);
 
+    ConfigFile = new AppConfigs("config.ar");
+
     MarkerList = new QStringListModel;
+    QStringList strlist = ConfigFile->GetArucoIDs();
     ui->listView_markerslist->setModel(MarkerList);
+    MarkerList->setStringList(strlist);
+    for (auto iter = strlist.begin(); iter != strlist.end(); iter++)
+        AvailableMarkers[iter->remove(0, 10).toInt()] = 1;
+
+    CameraRate = new FrameRate(ConfigFile->GetFrameRate(), ConfigFile->GetFrameRateThres());
+
+    camera = new Camera(ConfigFile->GetCameraHeight(),
+                        ConfigFile->GetCameraWidth(),
+                        ConfigFile->GetAutoFocus(),
+                        ConfigFile->GetAutoExposure());
+    camera->Open(ConfigFile->GetCameraID());
 
     MarkerParameters = cv::aruco::DetectorParameters::create();
     MarkerDictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 
-#ifdef ARUCO_GENERATE_MARKERS
-    cv::Mat img;
-    for (int i = 0; i < 50; i++){
-        cv::aruco::drawMarker(MarkerDictionary, i, 200, img);
-        cv::imwrite(std::to_string(i) + ".bmp", img);
-    }
-#endif
-
-    CameraTimer = new QTimer();
-
-    QTimer::singleShot(CAMERA_CALLBACK_PERIOD, this, SLOT(CameraCallback()));
-//    connect(CameraTimer, SIGNAL(timeout()), this, SLOT(CameraCallback()));
-//    CameraTimer->start(CAMERA_CALLBACK_PERIOD);
+    QTimer::singleShot(ONE_SECOND / CameraRate->GetPresetFrameRate(), this, SLOT(CameraCallback()));
 
     UIUpdateTimer = new QTimer();
     connect(UIUpdateTimer, SIGNAL(timeout()), this, SLOT(UIUpdateCallback()));
     UIUpdateTimer->start(1000);
+
+    connect(ui->actionGenerate_Markers, SIGNAL(triggered()), this, SLOT(GenerateMarkers()));
+    connect(ui->actionSave_Configurations, SIGNAL(triggered()), this, SLOT(SaveConfigurations()));
+    connect(ui->actionExit, SIGNAL(triggered()), this, SLOT(Exit()));
 }
 
 MainWindow::~MainWindow(){
-    if (camera.isOpened())
-        camera.release();
+    if (camera->isOpened())
+        camera->release();
+
     delete ui;
 }
 
 void MainWindow::on_pushButton_camerachoose_clicked(){
-    if (camera.isOpened()) camera.release();
-    camera.open(ui->comboBox_camerachoose->currentIndex());
-    camera.set(cv::CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH);
-    camera.set(cv::CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT);
-    camera.set(cv::CAP_PROP_AUTOFOCUS, CAMERA_AUTOFOCUS);
-    camera.set(cv::CAP_PROP_AUTO_EXPOSURE, CAMERA_AUTOEXPOSURE);
+    if (camera->isOpened()) camera->release();
+    camera->Open(ui->comboBox_camerachoose->currentIndex());
 }
 
 void MainWindow::on_pushButton_choosearuco_clicked(void){
     QStringList StrList = MarkerList->stringList();
+    if (ui->lineEdit_markerID->text().length() == 0) return;
     for (auto iter = StrList.begin(); iter != StrList.end(); iter++){
-        if (strncmp(iter->toStdString().c_str(), ui->lineEdit_markerID->text().toStdString().c_str(), iter->length()) == 0){
+        if (strncmp(iter->toStdString().c_str(), (MARKER_ID_HEADER + ui->lineEdit_markerID->text().toStdString()).c_str(), iter->length()) == 0){
+            ui->lineEdit_markerID->clear();
             return;
         }
     }
-    StrList.append(ui->lineEdit_markerID->text());
+    StrList.append(MARKER_ID_HEADER + ui->lineEdit_markerID->text());
     AvailableMarkers[ui->lineEdit_markerID->text().toInt()] = 1;
     MarkerList->setStringList(StrList);
 
-    ui->lineEdit_markerID->setText("");
+    ui->lineEdit_markerID->clear();
 }
 
 void MainWindow::on_pushButton_removearuco_clicked(){
     QStringList StrList = MarkerList->stringList();
+    if (ui->lineEdit_markerID->text().length() == 0) return;
     for (auto iter = StrList.begin(); iter != StrList.end(); iter++){
-        if (strncmp(iter->toStdString().c_str(), ui->lineEdit_markerID->text().toStdString().c_str(), ui->lineEdit_markerID->text().length()) == 0){
+        if (strncmp(iter->toStdString().c_str(), (MARKER_ID_HEADER + ui->lineEdit_markerID->text().toStdString()).c_str(), (MARKER_ID_HEADER + ui->lineEdit_markerID->text()).length()) == 0){
             StrList.erase(iter);
             AvailableMarkers[iter->toInt()] = 0;
             MarkerList->setStringList(StrList);
@@ -175,7 +186,7 @@ void MainWindow::on_pushButton_removearuco_clicked(){
         }
     }
 
-    ui->lineEdit_markerID->setText("");
+    ui->lineEdit_markerID->clear();
 }
 
 void MainWindow::on_pushButton_experimentstart_clicked(){
@@ -185,8 +196,8 @@ void MainWindow::on_pushButton_experimentstart_clicked(){
 
         if (!(VideoFile.isOpened()))
             VideoFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + VIDEO_FORMAT,
-                           cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 1000 / CAMERA_CALLBACK_PERIOD,
-                           cv::Size(camera.get(cv::CAP_PROP_FRAME_WIDTH), camera.get(cv::CAP_PROP_FRAME_HEIGHT)));
+                           cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), CameraRate->GetPresetFrameRate(),
+                           cv::Size(camera->GetWidth(), camera->GetHeight()));
         if (!(LogFile.is_open())) LogFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + CSV_TAIL);
         ui->pushButton_experimentstart->setText("Stop");
         StartStopFlag = 1;
@@ -197,4 +208,22 @@ void MainWindow::on_pushButton_experimentstart_clicked(){
         if (LogFile.is_open()) LogFile.close();
         ui->pushButton_experimentstart->setText("Start");
     }
+}
+
+void MainWindow::GenerateMarkers(){
+    QDir directory = QDir::current();
+    directory.mkdir("Aruco Markers/");
+    cv::Mat img;
+    for (int i = 0; i < 50; i++){
+        cv::aruco::drawMarker(MarkerDictionary, i, 200, img);
+        cv::imwrite("Aruco Markers/" + std::to_string(i) + ".bmp", img);
+    }
+}
+
+void MainWindow::SaveConfigurations(){
+    ConfigFile->Save("config.ar");
+}
+
+void MainWindow::Exit(){
+    this->~MainWindow();
 }

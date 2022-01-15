@@ -27,6 +27,9 @@ private slots:
     void on_pushButton_choosearuco_clicked();
     void on_pushButton_removearuco_clicked();
     void on_pushButton_experimentstart_clicked();
+    void GenerateMarkers();
+    void SaveConfigurations();
+    void Exit();
 };
 
 #endif // MAINWINDOW_H

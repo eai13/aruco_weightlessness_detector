@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#define MARKER_ID_HEADER        "Marker ID "
+
 #define CAMERA_CALLBACK_PERIOD      40
 #define CAMERA_FRAMERATE_THRESHOLD  3
 #define CAMERA_WIDTH            1920

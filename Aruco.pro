@@ -11,12 +11,14 @@ CONFIG += c++11
 SOURCES += \
     framerate.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    memfile.cpp
 
 HEADERS += \
     config.h \
     framerate.h \
     mainwindow.h \
+    memfile.h \
     ui_upd.h
 
 FORMS += \
