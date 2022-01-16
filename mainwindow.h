@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include "memfile.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow;}
@@ -13,7 +14,6 @@ class MainWindow : public QMainWindow
 
 public:
     MainWindow(QWidget *parent = nullptr);
-    void CameraProcessing(void);
     ~MainWindow();
 
 private:
@@ -23,13 +23,14 @@ public slots:
     void CameraCallback(void);
     void UIUpdateCallback(void);
 private slots:
-    void on_pushButton_camerachoose_clicked();
-    void on_pushButton_choosearuco_clicked();
-    void on_pushButton_removearuco_clicked();
-    void on_pushButton_experimentstart_clicked();
-    void GenerateMarkers();
-    void SaveConfigurations();
-    void Exit();
+    void on_pushButton_camerachoose_clicked(void);
+    void on_pushButton_choosearuco_clicked(void);
+    void on_pushButton_removearuco_clicked(void);
+    void on_pushButton_experimentstart_clicked(void);
+    void GenerateMarkers(void);
+    void SaveConfigurations(void);
+    void Exit(void);
+    void CameraSettings(void);
 };
 
 #endif // MAINWINDOW_H

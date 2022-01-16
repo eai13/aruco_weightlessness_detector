@@ -52,4 +52,6 @@ private:
     QList<int> aruco_list;
 };
 
+extern AppConfigs * ConfigFile;
+
 #endif // MEMFILE_H

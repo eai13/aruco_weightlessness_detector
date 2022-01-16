@@ -1,5 +1,7 @@
 #include "memfile.h"
 
+AppConfigs * ConfigFile;
+
 AppConfigs::AppConfigs(std::string filename){
     std::ifstream file(filename);
     std::string parameter, value;

@@ -31,9 +31,14 @@
 #include "framerate.h"
 #include "memfile.h"
 
+#include "settings.h"
+
+Settings * setui;
+
 QTime * Time;
 
-AppConfigs * ConfigFile;
+//AppConfigs * ConfigFile;
+extern AppConfigs * ConfigFile;
 
 FrameRate * CameraRate;
 
@@ -99,9 +104,6 @@ void MainWindow::CameraCallback(void){
                 LogFile << std::endl;
             }
             if (VideoFile.isOpened()){
-//                cv::rectangle(VideoFrame,
-//                              cv::Point(10, 10), cv::Point(300, 90),
-//                              cv::Scalar(0, 0, 0), -1);
                 cv::putText(VideoFrame,
                             "Time: " + std::to_string((Time->elapsed() / 1000.0)),
                             cv::Point(20, 40),
@@ -170,6 +172,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->actionGenerate_Markers, SIGNAL(triggered()), this, SLOT(GenerateMarkers()));
     connect(ui->actionSave_Configurations, SIGNAL(triggered()), this, SLOT(SaveConfigurations()));
     connect(ui->actionExit, SIGNAL(triggered()), this, SLOT(Exit()));
+    connect(ui->actionCamera_Settings, SIGNAL(triggered()), this, SLOT(CameraSettings()));
 }
 
 MainWindow::~MainWindow(){
@@ -220,23 +223,27 @@ void MainWindow::on_pushButton_experimentstart_clicked(){
     if (StartStopFlag == 0){
         QDir directory = QDir::current();
         directory.mkdir(ui->lineEdit_experimentname->text());
-        std::cout << "here 1" << std::endl;
+
         if (!(VideoFile.isOpened()))
             VideoFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + VIDEO_FORMAT,
                            cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), CameraRate->GetPresetFrameRate(),
-                           cv::Size(camera->get(cv::CAP_PROP_FRAME_WIDTH), camera->get(cv::CAP_PROP_FRAME_HEIGHT))); //camera->GetWidth(), camera->GetHeight()));
-        std::cout << "here 2" << std::endl;
+                           cv::Size(camera->get(cv::CAP_PROP_FRAME_WIDTH), camera->get(cv::CAP_PROP_FRAME_HEIGHT)));
+
         if (!(LogFile.is_open())) LogFile.open(ui->lineEdit_experimentname->text().toStdString() + "/" + ui->lineEdit_experimentname->text().toStdString() + CSV_TAIL);
+
         ui->pushButton_experimentstart->setText("Stop");
-        std::cout << "here 3" << std::endl;
         StartStopFlag = 1;
+
         Time->restart();
     }
     else{
         FrameCounter = 0;
         StartStopFlag = 0;
+
         if (VideoFile.isOpened()) VideoFile.release();
+
         if (LogFile.is_open()) LogFile.close();
+
         ui->pushButton_experimentstart->setText("Start");
     }
 }
@@ -257,4 +264,9 @@ void MainWindow::SaveConfigurations(){
 
 void MainWindow::Exit(){
     this->~MainWindow();
+}
+
+void MainWindow::CameraSettings(){
+    setui = new Settings(this);
+    setui->exec();
 }

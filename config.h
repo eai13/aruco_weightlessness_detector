@@ -13,8 +13,8 @@
 
 #define CSV_SEPARATOR           ';'
 #define CSV_TAIL                ".csv"
-
 #define VIDEO_FORMAT            ".avi"
+#define DEBUG_FILE_FORMAT       ".debug"
 
 #define SETTINGS_DIR            "settings/"
 

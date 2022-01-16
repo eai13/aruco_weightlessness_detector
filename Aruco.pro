@@ -12,17 +12,20 @@ SOURCES += \
     framerate.cpp \
     main.cpp \
     mainwindow.cpp \
-    memfile.cpp
+    memfile.cpp \
+    settings.cpp
 
 HEADERS += \
     config.h \
     framerate.h \
     mainwindow.h \
     memfile.h \
+    settings.h \
     ui_upd.h
 
 FORMS += \
-    mainwindow.ui
+    mainwindow.ui \
+    settings.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
